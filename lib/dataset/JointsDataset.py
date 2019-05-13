@@ -287,9 +287,11 @@ class JointsDataset(Dataset):
 
                 # # Generate gaussian
                 """
+                构造高斯滤波器
                 x[:, np.newaxis]  在这一位置增加一个一维
-                
                 from __future__ import division : " / "就表示 浮点数除法，返回浮点结果;" // "表示整数除法
+
+                sigma标准差代表着数据的离散程度，如果σ较小，那么生成的模板的中心系数较大，而周围的系数较小
                 """
                 size = 2 * tmp_size + 1
                 x = np.arange(0, size, 1, np.float32)
