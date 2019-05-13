@@ -48,14 +48,15 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
         loss = criterion(output, target, target_weight)
 
         # compute gradient and do update step
-        optimizer.zero_grad()
+        ## zero the parameter gradients
+        optimizer.zero_grad()###***
         loss.backward()
         optimizer.step()
 
         # measure accuracy and record loss
         losses.update(loss.item(), input.size(0))
 
-        _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
+        _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),###  variable.detach() -> .data
                                          target.detach().cpu().numpy())
         acc.update(avg_acc, cnt)
 
@@ -93,6 +94,11 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
     acc = AverageMeter()
 
     # switch to evaluate mode
+    """
+    eval()
+    框架会自动把BN和DropOut固定住，不会取平均，而是用训练好的值
+    若不切换模式到eval，一旦test的batch_size过小，很容易就会被BN层导致生成图片颜色失真极大
+    """
     model.eval()
 
     num_samples = len(val_dataset)
@@ -111,7 +117,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             if config.TEST.FLIP_TEST:
                 # this part is ugly, because pytorch has not supported negative index
                 # input_flipped = model(input[:, :, :, ::-1])
-                input_flipped = np.flip(input.cpu().numpy(), 3).copy()
+                input_flipped = np.flip(input.cpu().numpy(), 3).copy()##??? why flip 3 and out_flipped flip back
                 input_flipped = torch.from_numpy(input_flipped).cuda()
                 output_flipped = model(input_flipped)
                 output_flipped = flip_back(output_flipped.cpu().numpy(),
@@ -119,6 +125,14 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                 output_flipped = torch.from_numpy(output_flipped.copy()).cuda()
 
                 # feature is not aligned, shift flipped heatmap for higher accuracy
+                """
+                output_shape = (image_shape-kernel_size+2*padding)/stride + 1
+                padding前面的系数是2，所以在padding时，一般是对称地补，左／右各padding一列 或者 上下各padding一行
+                stride是2，而括号里算出来的值刚好是奇数,那么补一行padding
+                caffe镜像对称 把一行0补在上面 或者 把一列0补在左边
+                tensorflows  把一行0补在下面或者把一列0补在右边。
+                这就是导致输出对齐不了的原因，前面几层输出的feature map的中间还能勉强对上，随着网络结构的加深，到fc之前已经完全对不上了。
+                """
                 if config.TEST.SHIFT_HEATMAP:
                     output_flipped[:, :, :, 1:] = \
                         output_flipped.clone()[:, :, :, 0:-1]
@@ -143,7 +157,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             batch_time.update(time.time() - end)
             end = time.time()
 
-            c = meta['center'].numpy()
+            c = meta['center'].numpy()### the use of center  and score ???
             s = meta['scale'].numpy()
             score = meta['score'].numpy()
 
@@ -155,7 +169,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             # double check this all_boxes parts
             all_boxes[idx:idx + num_images, 0:2] = c[:, 0:2]
             all_boxes[idx:idx + num_images, 2:4] = s[:, 0:2]
-            all_boxes[idx:idx + num_images, 4] = np.prod(s*200, 1)
+            all_boxes[idx:idx + num_images, 4] = np.prod(s*200, 1) ### axis 1 横着乘 scale*100 ->>>area???
             all_boxes[idx:idx + num_images, 5] = score
             image_path.extend(meta['image'])
             if config.DATASET.DATASET == 'posetrack':
@@ -174,7 +188,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                 logger.info(msg)
 
                 prefix = '{}_{}'.format(os.path.join(output_dir, 'val'), i)
-                save_debug_images(config, input, meta, target, pred*4, output,
+                save_debug_images(config, input, meta, target, pred*4, output,###???
                                   prefix)
 
         name_values, perf_indicator = val_dataset.evaluate(

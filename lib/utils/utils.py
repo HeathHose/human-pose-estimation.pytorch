@@ -58,6 +58,9 @@ def create_logger(cfg, cfg_name, phase='train'):
 
 def get_optimizer(cfg, model):
     optimizer = None
+    """
+    torch.nn.Module的可学习参数(即权重和偏差)，模块模型包含在model's参数中(通过model.parameters()访问)
+    """
     if cfg.TRAIN.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(
             model.parameters(),

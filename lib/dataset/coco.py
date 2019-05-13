@@ -40,7 +40,7 @@ class COCODataset(JointsDataset):
         8: "right_elbow",
         9: "left_wrist",
         10: "right_wrist",
-        11: "left_hip",
+            11: "left_hip",
         12: "right_hip",
         13: "left_knee",
         14: "right_knee",
@@ -53,6 +53,14 @@ class COCODataset(JointsDataset):
     '''
     def __init__(self, cfg, root, image_set, is_train, transform=None):
         super().__init__(cfg, root, image_set, is_train, transform)
+        """
+        nms_thre 非极大值抑制的阈值
+        image_thre 图片score的阈值
+        oks_thre ???
+        use_gt_bbox 是否使用真实的标注框
+        aspect_ratio 图片的长宽比例
+        coco: coco数据集的标注类(由工具包pycocotools初始化)
+        """
         self.nms_thre = cfg.TEST.NMS_THRE
         self.image_thre = cfg.TEST.IMAGE_THRE
         self.oks_thre = cfg.TEST.OKS_THRE
@@ -63,14 +71,25 @@ class COCODataset(JointsDataset):
         self.image_height = cfg.MODEL.IMAGE_SIZE[1]
         self.aspect_ratio = self.image_width * 1.0 / self.image_height
         self.pixel_std = 200
+        """
+        _get_ann_file_keypoint: 获取annotation文件的路径(硬编码嵌入person_keypoints)
+        coco :  person_keypoints.json 的实例化类 
+        """
         self.coco = COCO(self._get_ann_file_keypoint())
 
         # deal with class names
+        """
+        cats:coco数据集中类别的名字
+        classes: cats添加_background_ ???
+        """
         cats = [cat['name']
                 for cat in self.coco.loadCats(self.coco.getCatIds())]
         self.classes = ['__background__'] + cats
         logger.info('=> classes: {}'.format(self.classes))
         self.num_classes = len(self.classes)
+        """
+        dict(zip()): key和value的list组合在一起, 再转成字典(dict)    
+        """
         self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
         self._class_to_coco_ind = dict(zip(cats, self.coco.getCatIds()))
         self._coco_ind_to_class_ind = dict([(self._class_to_coco_ind[cls],
@@ -78,6 +97,9 @@ class COCODataset(JointsDataset):
                                             for cls in self.classes[1:]])
 
         # load image file names
+        """
+        image_set_index:  coco annotaion file 使用coco api得到数据集的image_id集合
+        """
         self.image_set_index = self._load_image_set_index()
         self.num_images = len(self.image_set_index)
         logger.info('=> num_images: {}'.format(self.num_images))
@@ -88,12 +110,17 @@ class COCODataset(JointsDataset):
         self.parent_ids = None
 
         self.db = self._get_db()
-
+        """
+        SELECT_DATA 在哪运行？？？
+        """
         if is_train and cfg.DATASET.SELECT_DATA:
             self.db = self.select_data(self.db)
 
         logger.info('=> load {} samples'.format(len(self.db)))
 
+    """
+    获取annotation文件的路径(硬编码嵌入person_keypoints)
+    """
     def _get_ann_file_keypoint(self):
         """ self.root / annotations / person_keypoints_train2017.json """
         prefix = 'person_keypoints' \
@@ -107,6 +134,10 @@ class COCODataset(JointsDataset):
         return image_ids
 
     def _get_db(self):
+        """"""
+        """
+        use_gt_bbox\训练状态:  gt_db引入gt_bbox框
+        """
         if self.is_train or self.use_gt_bbox:
             # use ground truth bbox
             gt_db = self._load_coco_keypoint_annotations()
@@ -133,6 +164,16 @@ class COCODataset(JointsDataset):
         :param index: coco image id
         :return: db entry
         """
+
+        """
+        im_ann
+        {'license': 4, 
+        'file_name': '000000397133.jpg', 
+        'coco_url': 'http://images.cocodataset.org/val2017/000000397133.jpg', 
+        'height': 427, 'width': 640, 'date_captured': '2013-11-14 17:02:52', 
+        'flickr_url': 'http://farm7.staticflickr.com/6116/6255196340_da26cf2c9e_z.jpg', 
+        'id': 397133}
+        """
         im_ann = self.coco.loadImgs(index)[0]
         width = im_ann['width']
         height = im_ann['height']
@@ -144,6 +185,11 @@ class COCODataset(JointsDataset):
         valid_objs = []
         for obj in objs:
             x, y, w, h = obj['bbox']
+            """
+            width-1 因为检测框的大小不能小于1
+            目标检测框x,y：框的左上角坐标
+            验证：1.目标检测框的坐标大于0  2. x+width 不超过图片的宽, y+height 不超过图片的高
+            """
             x1 = np.max((0, x))
             y1 = np.max((0, y))
             x2 = np.min((width - 1, x1 + np.max((0, w - 1))))
@@ -161,9 +207,16 @@ class COCODataset(JointsDataset):
                 continue
 
             # ignore objs without keypoints annotation
+            """
+            忽视了没有关键点标签的数据
+            """
             if max(obj['keypoints']) == 0:
                 continue
 
+            """
+            joints_3d     该图片的17个关键点,可见性情况均置位0
+            joints_3d_vis 该图片的17个关键点可见性情况；若v>1,即已经标注，均置为1 
+            """
             joints_3d = np.zeros((self.num_joints, 3), dtype=np.float)
             joints_3d_vis = np.zeros((self.num_joints, 3), dtype=np.float)
             for ipt in range(self.num_joints):
@@ -177,6 +230,10 @@ class COCODataset(JointsDataset):
                 joints_3d_vis[ipt, 1] = t_vis
                 joints_3d_vis[ipt, 2] = 0
 
+            """
+            利用aspect_ratio 宽高比计算出 目标检测框的中心和尺寸
+            center 目标检测框的中心
+            """
             center, scale = self._box2cs(obj['clean_bbox'][:4])
             rec.append({
                 'image': self.image_path_from_index(index),
@@ -193,12 +250,16 @@ class COCODataset(JointsDataset):
     def _box2cs(self, box):
         x, y, w, h = box[:4]
         return self._xywh2cs(x, y, w, h)
-
+    """
+    目标检测框如果不符合图片宽高比,进行裁剪
+    若w过长,增长h
+    若h过长,增长w
+    scale: w/200,h/200  ???
+    """
     def _xywh2cs(self, x, y, w, h):
         center = np.zeros((2), dtype=np.float32)
         center[0] = x + w * 0.5
         center[1] = y + h * 0.5
-
         if w > self.aspect_ratio * h:
             h = w * 1.0 / self.aspect_ratio
         elif w < self.aspect_ratio * h:
@@ -392,7 +453,7 @@ class COCODataset(JointsDataset):
         coco_eval.params.useSegm = None
         coco_eval.evaluate()
         coco_eval.accumulate()
-        coco_eval.summarize()
+        coco_eval.summarize()### compute oks
         stats_names = ['AP', 'Ap .5', 'AP .75', 'AP (M)', 'AP (L)', 'AR', 'AR .5', 'AR .75', 'AR (M)', 'AR (L)']
 
         info_str = []

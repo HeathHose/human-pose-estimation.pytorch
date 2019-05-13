@@ -34,6 +34,9 @@ def fliplr_joints(joints, joints_vis, width, matched_parts):
     flip coords
     """
     # Flip horizontal
+    """
+    坐标从0到width-1，则对称翻转 x+y = width-1
+    """
     joints[:, 0] = width - joints[:, 0] - 1
 
     # Change left-right parts
@@ -69,13 +72,19 @@ def get_affine_transform(center,
     dst_w = output_size[0]
     dst_h = output_size[1]
 
+    """
+    
+    """
     rot_rad = np.pi * rot / 180
     src_dir = get_dir([0, src_w * -0.5], rot_rad)
     dst_dir = np.array([0, dst_w * -0.5], np.float32)
 
     src = np.zeros((3, 2), dtype=np.float32)
     dst = np.zeros((3, 2), dtype=np.float32)
-    src[0, :] = center + scale_tmp * shift
+    """
+    变换之后，目标检测框变成256X192，中心由原中心-> [96,128]
+    """
+    src[0, :] = center + scale_tmp * shift  ###??? shift 这是拿来干什么的
     src[1, :] = center + src_dir + scale_tmp * shift
     dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
     dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5]) + dst_dir

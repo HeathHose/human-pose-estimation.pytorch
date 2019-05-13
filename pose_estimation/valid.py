@@ -12,7 +12,6 @@ from __future__ import print_function
 import argparse
 import os
 import pprint
-
 import torch
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
@@ -22,6 +21,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 
 import _init_paths
+
 from core.config import config
 from core.config import update_config
 from core.config import update_dir
@@ -50,6 +50,16 @@ def parse_args():
                         help='frequency of logging',
                         default=config.PRINT_FREQ,
                         type=int)
+    """
+    1.--gpus 设定gpu数量
+    2.--workers 设定并行dataloader workers的数量？？？
+    3.--use-detect-bbox 是否使用coco数据集的检测框？？？
+    4.--flip-test 是否使用翻转测试
+    5.--post-process ？？？
+    6.--shift-heatmap 特征没有对齐,移动已翻转的热图，获得更高的精度
+    7.--coco-bbox-file 是否使用coco bbox的文件？？？-
+    8.action='store true'???
+    """
     parser.add_argument('--gpus',
                         help='gpus',
                         type=str)
@@ -118,6 +128,11 @@ def main():
         config, is_train=False
     )
 
+    """
+    model_state_file：需要评估的模型
+    model保存：model.cpu().state_dict()
+    model加载：model.load_state_dict(torch.load(model_state_file))
+    """
     if config.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
         model.load_state_dict(torch.load(config.TEST.MODEL_FILE))

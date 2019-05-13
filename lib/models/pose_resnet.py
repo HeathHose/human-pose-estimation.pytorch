@@ -143,15 +143,30 @@ class Bottleneck_CAFFE(nn.Module):
 
 class PoseResNet(nn.Module):
 
+    """
+    初始化网络
+    """
     def __init__(self, block, layers, cfg, **kwargs):
         self.inplanes = 64
         extra = cfg.MODEL.EXTRA
+        """
+            硬编码inplanes =64 ???
+            DECONV_WITH_BIAS 带有偏差的反卷积
+        """
         self.deconv_with_bias = extra.DECONV_WITH_BIAS
 
         super(PoseResNet, self).__init__()
+        """
+        为什么设置padding=3 ???
+        in_channels=3,out_channels=64
+        """
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
+        """
+        inplace为True，将会改变输入的数据 ，否则不会改变原输入，只会产生新的输出
+        利用inplace计算可以节省内（显）存，同时还可以省去反复申请和释放内存的时间。但是会对原变量覆盖，只要不带来错误就用
+        """
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -246,7 +261,7 @@ class PoseResNet(nn.Module):
         x = self.final_layer(x)
 
         return x
-
+    ## ???
     def init_weights(self, pretrained=''):
         if os.path.isfile(pretrained):
             logger.info('=> init deconv weights from normal distribution')
@@ -307,6 +322,9 @@ resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
 
 def get_pose_net(cfg, is_train, **kwargs):
     num_layers = cfg.MODEL.EXTRA.NUM_LAYERS
+    """
+    num_layers 网络总层数:选择18,34,50,101,152
+    """
     style = cfg.MODEL.STYLE
 
     block_class, layers = resnet_spec[num_layers]
