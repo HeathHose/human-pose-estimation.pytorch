@@ -105,3 +105,10 @@ venv.bak/
 /output
 /models
 /log
+.idea/*
+.idea/*.*
+.idea/
+.idea/workspace.xml
+experiment/
+pose_estimation/test.py
+.gitignore

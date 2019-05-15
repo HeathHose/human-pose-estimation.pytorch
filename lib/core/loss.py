@@ -33,7 +33,7 @@ class JointsMSELoss(nn.Module):
         
         output 维度变化
         reshape:32,17,64,48改变为 32,17,3072
-        split:  32,17,3072改变为 32,1,3072
+        split:  32,17,3072改变为 17个（32,1,3072）
         squeeze：32.1.3072改变为32,3072
         方便循环处理num_joints为0-16的pred
         

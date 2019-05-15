@@ -19,8 +19,11 @@ def calc_dists(preds, target, normalize):
     dists = np.zeros((preds.shape[1], preds.shape[0]))
     for n in range(preds.shape[0]):
         for c in range(preds.shape[1]):
+            """
+            除去热力图边缘的点，获得更友好的数据???
+            """
             if target[n, c, 0] > 1 and target[n, c, 1] > 1:
-                normed_preds = preds[n, c, :] / normalize[n]
+                normed_preds = preds[n, c, :] / normalize[n]    ###???
                 normed_targets = target[n, c, :] / normalize[n]
                 dists[c, n] = np.linalg.norm(normed_preds - normed_targets)###linear algebra norm
             else:
@@ -30,7 +33,12 @@ def calc_dists(preds, target, normalize):
 
 def dist_acc(dists, thr=0.5):
     ''' Return percentage below threshold while ignoring values with a -1 '''
-    dist_cal = np.not_equal(dists, -1)### return bool
+    """
+    np.not_equal 返回布尔值，除去距离为-1的值；即处于热力图边缘，pred最大的关节点
+    dists[dist_cal] 相同形状的bool值数组作为索引,数组会得到相对应（true）的元素
+    计算 距离数组（dist）距离小于0.5 占总体比值
+    """
+    dist_cal = np.not_equal(dists, -1)
     num_dist_cal = dist_cal.sum()
     if num_dist_cal > 0:
         return np.less(dists[dist_cal], thr).sum() * 1.0 / num_dist_cal  ###bool type  index get the corresponding element
@@ -47,20 +55,26 @@ def accuracy(output, target, hm_type='gaussian', thr=0.5):
     '''
     idx = list(range(output.shape[1]))
     norm = 1.0
+    """
+    norm [32,2] pred[32,17,48*64]
+    calc_dists()：compute the distance of pred and target
+    """
     if hm_type == 'gaussian':
         pred, _ = get_max_preds(output)
         target, _ = get_max_preds(target)
         h = output.shape[2]
         w = output.shape[3]
         norm = np.ones((pred.shape[0], 2)) * np.array([h, w]) / 10
-    dists = calc_dists(pred, target, norm) ### compute the distance of pred and target
-
+    dists = calc_dists(pred, target, norm)
     acc = np.zeros((len(idx) + 1))
     avg_acc = 0
     cnt = 0
-
+    """
+    idx 17 num_joints; 
+    
+    """
     for i in range(len(idx)):
-        acc[i + 1] = dist_acc(dists[idx[i]])###idx 17 num_joints; compute (accuracy)the pred of greater than 0.5
+        acc[i + 1] = dist_acc(dists[idx[i]])
         if acc[i + 1] >= 0:
             avg_acc = avg_acc + acc[i + 1]
             cnt += 1

@@ -191,6 +191,9 @@ class PoseResNet(nn.Module):
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
+        """一个有序的容器，神经网络模块将按照在传入构造器的顺序依次被添加到计算图中执行
+        同时以神经网络模块为元素的有序字典也可以作为传入参数,需要添加参数
+        """
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
@@ -258,6 +261,9 @@ class PoseResNet(nn.Module):
         x = self.layer4(x)
 
         x = self.deconv_layers(x)
+        """
+        将特征转化为热力图,看看维数变化
+        """
         x = self.final_layer(x)
 
         return x

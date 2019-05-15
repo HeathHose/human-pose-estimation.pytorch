@@ -48,8 +48,12 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
         loss = criterion(output, target, target_weight)
 
         # compute gradient and do update step
-        ## zero the parameter gradients
-        optimizer.zero_grad()###***
+        """
+        有时间看看mini——batch
+        将导数置为0，optimizer的参数为model.parameter()时，等价于model.zero_grad()
+        loss.item()？？？是什么，怎么取值的
+        """
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -109,7 +113,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
     filenames = []
     imgnums = []
     idx = 0
-    with torch.no_grad():
+    with torch.no_grad():###???
         end = time.time()
         for i, (input, target, target_weight, meta) in enumerate(val_loader):
             # compute output

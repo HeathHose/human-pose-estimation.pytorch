@@ -46,6 +46,12 @@ def fliplr_joints(joints, joints_vis, width, matched_parts):
         joints_vis[pair[0], :], joints_vis[pair[1], :] = \
             joints_vis[pair[1], :], joints_vis[pair[0], :].copy()
 
+    """
+    joints*joints_vis 将joints中关节点不可见的坐标置为0，如
+    12,12,0    1 0 1
+    13,13,0 ×  1 0 1
+    14,14,0    0 0 0
+    """
     return joints*joints_vis, joints_vis
 
 

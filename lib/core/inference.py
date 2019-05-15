@@ -30,19 +30,29 @@ def get_max_preds(batch_heatmaps):
     heatmaps_reshaped = batch_heatmaps.reshape((batch_size, num_joints, -1))
     idx = np.argmax(heatmaps_reshaped, 2)
     maxvals = np.amax(heatmaps_reshaped, 2)
-
+    """ 
+    tile在相应的位置平铺,[1,1,2]在axis=2的维度平铺两次，[32,17,1]->[32,17,2]
+    np.greater(array,0)返回bool值数组
+    np.floor 取不大于参数的最大整数  
+    
+    热力图的坐标:
+    1.preds[:,:,0] 关节点最大概率的余数,即热力图横坐标（宽） 
+    2.preds[:,:,1] 关节点最大概率的整数，即热力图纵坐标（高）
+    
+    pred_mask 去除得分小于0的关节点
+    """
     maxvals = maxvals.reshape((batch_size, num_joints, 1))
     idx = idx.reshape((batch_size, num_joints, 1))
 
     preds = np.tile(idx, (1, 1, 2)).astype(np.float32)
 
     preds[:, :, 0] = (preds[:, :, 0]) % width
-    preds[:, :, 1] = np.floor((preds[:, :, 1]) / width)###floor 取不大于参数的最大整数
+    preds[:, :, 1] = np.floor((preds[:, :, 1]) / width)
 
     pred_mask = np.tile(np.greater(maxvals, 0.0), (1, 1, 2))
     pred_mask = pred_mask.astype(np.float32)
 
-    preds *= pred_mask###1.??? 2. tile to (1,1,2)
+    preds *= pred_mask
     return preds, maxvals
 
 

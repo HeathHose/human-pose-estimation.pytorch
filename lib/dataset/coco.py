@@ -214,8 +214,8 @@ class COCODataset(JointsDataset):
                 continue
 
             """
-            joints_3d     该图片的17个关键点,可见性情况均置位0
-            joints_3d_vis 该图片的17个关键点可见性情况；若v>1,即已经标注，均置为1 
+            joints_3d     该图片的17个关键点(x,y,0),可见性情况均置位0
+            joints_3d_vis 该图片的17个关键点可见性情况(1,1,0)；若v>1,即已经标注，均置为1 
             """
             joints_3d = np.zeros((self.num_joints, 3), dtype=np.float)
             joints_3d_vis = np.zeros((self.num_joints, 3), dtype=np.float)
@@ -224,11 +224,13 @@ class COCODataset(JointsDataset):
                 joints_3d[ipt, 1] = obj['keypoints'][ipt * 3 + 1]
                 joints_3d[ipt, 2] = 0
                 t_vis = obj['keypoints'][ipt * 3 + 2]
-                if t_vis > 1:
+                if t_vis > 1: ###???训练不可见但标注的关节点，有什么意义
                     t_vis = 1
                 joints_3d_vis[ipt, 0] = t_vis
                 joints_3d_vis[ipt, 1] = t_vis
                 joints_3d_vis[ipt, 2] = 0
+                if joints_3d[ipt,0] <0:
+                    print(joints_3d[ipt,0])
 
             """
             利用aspect_ratio 宽高比计算出 目标检测框的中心和尺寸
@@ -356,6 +358,9 @@ class COCODataset(JointsDataset):
             kpts[kpt['image']].append(kpt)
 
         # rescoring and oks nms
+        """
+            need to reivew
+        """
         num_joints = self.num_joints
         in_vis_thre = self.in_vis_thre
         oks_thre = self.oks_thre

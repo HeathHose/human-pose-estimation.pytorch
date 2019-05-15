@@ -121,10 +121,12 @@ class JointsDataset(Dataset):
         仿射变换（对应着五种变换，平移，缩放，旋转，翻转，错切）是一种二维坐标到二维坐标的x线性变换
         保持了二维图形的平直性（直线变换后仍然是直线）和平行性（二维图形之间相对位置关系保持不变）
         
-        s:仿射变换的旋转参数
+        s:仿射变换的缩放参数
         随机缩放sf+1,缩放幅度分布:[0.7,1.3] ???为什么缩放这么多
-        r:仿射变换的参数
-        0.6(旋转)：0.4（不旋转） 旋转幅度随机分布到：[-pi*40/180,pi*40/180] ???为什么旋转40
+        r:仿射变换的旋转参数
+        0.6(旋转)：0.4（不旋转） 旋转幅度随机分布到：[-pi*80/180,pi*80/180] ???为什么旋转80
+        
+        如果没有进行翻转，那么joints存在关节点不可见，但仍然存在坐标的情况
         """
         if self.is_train:
             sf = self.scale_factor
@@ -170,10 +172,13 @@ class JointsDataset(Dataset):
         affine_transform:
         1.将关键点的[x,y,1]转置变成列向量
         2.左乘变换矩阵,进行仿射变换
+        joints_vis[i, 0] > 0.0: 筛选抛弃可见性不为0的
         """
         for i in range(self.num_joints):
             if joints_vis[i, 0] > 0.0:
                 joints[i, 0:2] = affine_transform(joints[i, 0:2], trans)
+            if joints[i,0] <0:###???旋转过后，joints关节点坐标存在负数
+                joints[i,0] = joints[i,0]
 
         target, target_weight = self.generate_target(joints, joints_vis)
 
@@ -268,9 +273,12 @@ class JointsDataset(Dataset):
             mu_y: 转换成热力图之后，关节点的坐标y
             去掉了小数点，为保持tmp_szie**2的大小，补偿br（int(mu_x + tmp_size + 1)）
             距离热力图64x48中心点 tmp_size(3sigma)距离表示： 距离关键点sigma个像素
+            target = g(3sigma),大于3sigma的区域被忽视，置为0
             离sigma距离,正太分布占68.4
             离2sigma距离，正太分布占95.4
             离3sigma距离，正太分布占99.8 
+            
+            仿射变换，坐标轴没变，导致关节点坐标存在负数
             """
             for joint_id in range(self.num_joints):
                 feat_stride = self.image_size / self.heatmap_size
@@ -278,7 +286,7 @@ class JointsDataset(Dataset):
                 mu_y = int(joints[joint_id][1] / feat_stride[1] + 0.5)
                 # Check that any part of the gaussian is in-bounds
                 ul = [int(mu_x - tmp_size), int(mu_y - tmp_size)]
-                br = [int(mu_x + tmp_size + 1), int(mu_y + tmp_size + 1)]#？？？？ 保证3*sigma的范围都在热力图内
+                br = [int(mu_x + tmp_size + 1), int(mu_y + tmp_size + 1)]
                 if ul[0] >= self.heatmap_size[0] or ul[1] >= self.heatmap_size[1] \
                         or br[0] < 0 or br[1] < 0:
                     # If not, just return the image as is
@@ -287,11 +295,14 @@ class JointsDataset(Dataset):
 
                 # # Generate gaussian
                 """
-                构造高斯滤波器
-                x[:, np.newaxis]  在这一位置增加一个一维
+                构造高斯热力图g
+                1.x[:, np.newaxis]  在这一位置增加一个一维
                 from __future__ import division : " / "就表示 浮点数除法，返回浮点结果;" // "表示整数除法
-
-                sigma标准差代表着数据的离散程度，如果σ较小，那么生成的模板的中心系数较大，而周围的系数较小
+                
+                2.- ((x - x0) ** 2 + (y - y0) ** 2)
+                np.array的数组广播,array(13)+array(13,1)= array(13,13),array不够的地方,进行复制填充
+                
+                3.计算高斯range和图片对应range,长度相同，但相对位置不同
                 """
                 size = 2 * tmp_size + 1
                 x = np.arange(0, size, 1, np.float32)
@@ -308,6 +319,11 @@ class JointsDataset(Dataset):
                 img_y = max(0, ul[1]), min(br[1], self.heatmap_size[1])
 
                 v = target_weight[joint_id]
+                """
+                如果图片未翻转，则未进行joints*joints_vis操作，存在不可见的点坐标不为0
+                v>0.5,筛选掉不可见的关节点，此时target[joints]=[0,0,0]
+                如果这步操作放到开头，可提高效率，不清楚为什么会存在不可见仍然存在关节点坐标的情况？？？
+                """
                 if v > 0.5:
                     target[joint_id][img_y[0]:img_y[1], img_x[0]:img_x[1]] = \
                         g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
