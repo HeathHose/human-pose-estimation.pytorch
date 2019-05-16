@@ -154,6 +154,7 @@ class PoseResNet(nn.Module):
         self.bn1 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
@@ -319,4 +320,15 @@ def get_pose_net(cfg, is_train, **kwargs):
     if is_train and cfg.MODEL.INIT_WEIGHTS:
         model.init_weights(cfg.MODEL.PRETRAINED)
 
+    if cfg.MODEL.FREEZE:
+        freeze_imbalance(model)
     return model
+
+def freeze_imbalance(model):
+    for name,children in model.named_children():
+        for param in children.parameters():
+            if name in "final_layer":
+                continue
+            param.requires_grad = False
+
+

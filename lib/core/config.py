@@ -54,7 +54,7 @@ config.MODEL.PRETRAINED = ''
 config.MODEL.NUM_JOINTS = 16
 config.MODEL.IMAGE_SIZE = [256, 256]  # width * height, ex: 192 * 256
 config.MODEL.EXTRA = MODEL_EXTRAS[config.MODEL.NAME]
-
+config.MODEL.FREEZE = True
 config.MODEL.STYLE = 'pytorch'
 
 config.LOSS = edict()
@@ -126,7 +126,17 @@ config.DEBUG.SAVE_BATCH_IMAGES_PRED = False
 config.DEBUG.SAVE_HEATMAPS_GT = False
 config.DEBUG.SAVE_HEATMAPS_PRED = False
 
-
+#imba
+config.IMBA = edict()
+config.IMBA.ENABLE = True
+config.IMBA.MODEL_FILE = 'models/pytorch/pose_coco/pose_resnet_50_256x192.pth.tar'
+config.IMBA.LR_STEP = [90, 110]
+config.IMBA.LR = 0.001
+config.IMBA.LR_FACTOR = 0.1
+config.IMBA.MERGE = True
+config.IMBA.SHUFFLE = False
+config.IMBA.VAL_MODEL_IMBA = True
+config.IMBA.GPUS = '1'
 def _update_dict(k, v):
     if k == 'DATASET':
         if 'MEAN' in v and v['MEAN']:
