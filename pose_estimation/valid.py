@@ -120,7 +120,11 @@ def main():
 
     if config.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
-        model.load_state_dict(torch.load(config.TEST.MODEL_FILE))
+        state_dict = torch.load(config.TEST.MODEL_FILE)
+        state_dict["final_layer_imba.weight"] = state_dict["final_layer.weight"]
+        state_dict["final_layer_imba.bias"] = state_dict["final_layer.bias"]
+        model.load_state_dict(state_dict)
+        del(state_dict)
     else:
         model_state_file = os.path.join(final_output_dir,
                                         'final_state.pth.tar')

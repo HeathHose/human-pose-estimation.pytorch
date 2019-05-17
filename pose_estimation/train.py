@@ -97,8 +97,9 @@ def main():
         logger.info('=> loading model from {}'.format(config.IMBA.MODEL_FILE))
         state_dict = torch.load(config.IMBA.MODEL_FILE)
         state_dict["final_layer_imba.weight"] = state_dict["final_layer.weight"]
-        state_dict["final_layer_imba.weight"] = state_dict["final_layer.weight"]
-        model.load_state_dict(torch.load(config.IMBA.MODEL_FILE))
+        state_dict["final_layer_imba.bias"] = state_dict["final_layer.bias"]
+        model.load_state_dict(state_dict)
+        del(state_dict)
     else:
         raise Exception("finetune have no pretained model file")
 

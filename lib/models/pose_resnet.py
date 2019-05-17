@@ -260,7 +260,7 @@ class PoseResNet(nn.Module):
         if config.IMBA.MERGE:
             x_imba = self.final_layer_imba(x_temp)
             x = (x + x_imba) * 0.5
-
+        del(x_temp)
         return x
 
     def init_weights(self, pretrained=''):
@@ -335,14 +335,14 @@ def get_pose_net(cfg, is_train, **kwargs):
     if is_train and cfg.MODEL.INIT_WEIGHTS:
         model.init_weights(cfg.MODEL.PRETRAINED)
 
-    if cfg.MODEL.FREEZE:
+    if cfg.IMBA.FREEZE:
         freeze_recurse(model)
     return model
 
 def freeze_recurse(model):
     for name,child in model.named_children():
         #final_layer_imba不冻结
-        if name == "final_layer_imba":
+        if name == "final_layer":
             continue
         child.requires_grad = False
         if isinstance(child, nn.BatchNorm2d):
