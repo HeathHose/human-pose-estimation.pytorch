@@ -86,16 +86,14 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
                               prefix)
 
 
-def validate(config, val_loader, val_dataset, models, criterion, output_dir,
+def validate(config, val_loader, val_dataset, model, criterion, output_dir,
              tb_log_dir, writer_dict=None):
     batch_time = AverageMeter()
     losses = AverageMeter()
     acc = AverageMeter()
-    model = models[0]
-    model_imba = models[1]
+
     # switch to evaluate mode
     model.eval()
-    model_imba.eval()
 
     num_samples = len(val_dataset)
     all_preds = np.zeros((num_samples, config.MODEL.NUM_JOINTS, 3),
@@ -128,26 +126,6 @@ def validate(config, val_loader, val_dataset, models, criterion, output_dir,
 
                 output = (output + output_flipped) * 0.5
 
-            if config.IMBA.MERGE:
-                output_imba = models(input)
-                if config.TEST.FLIP_TEST:
-                    # this part is ugly, because pytorch has not supported negative index
-                    # input_flipped = model(input[:, :, :, ::-1])
-                    input_flipped = np.flip(input.cpu().numpy(), 3).copy()
-                    input_flipped = torch.from_numpy(input_flipped).cuda()
-                    output_flipped_imba = model_imba(input_flipped)
-                    output_flipped_imba = flip_back(output_flipped_imba.cpu().numpy(),
-                                               val_dataset.flip_pairs)
-                    output_flipped_imba = torch.from_numpy(output_flipped_imba.copy()).cuda()
-
-                    # feature is not aligned, shift flipped heatmap for higher accuracy
-                    if config.TEST.SHIFT_HEATMAP:
-                        output_flipped_imba[:, :, :, 1:] = \
-                            output_flipped_imba.clone()[:, :, :, 0:-1]
-                        # output_flipped[:, :, :, 0] = 0
-                    output_imba = (output_imba + output_flipped_imba)
-
-            output = (output + output_imba)*0.5
             target = target.cuda(non_blocking=True)
             target_weight = target_weight.cuda(non_blocking=True)
 

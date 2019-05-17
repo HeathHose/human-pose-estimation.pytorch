@@ -58,6 +58,7 @@ def create_logger(cfg, cfg_name, phase='train'):
 
 def get_optimizer(cfg, model):
     optimizer = None
+    print(filter(lambda param: param.requires_grad, model.parameters()))
     if cfg.TRAIN.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(
             filter(lambda param: param.requires_grad, model.parameters()),

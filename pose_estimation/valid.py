@@ -130,17 +130,6 @@ def main():
     gpus = [int(i) for i in config.GPUS.split(',')]
     model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
-    if config.IMBA.VAL_MODEL_IMBA:
-        model_imba = eval('models.' + config.MODEL.NAME + '.get_pose_net')(
-            config, is_train=False
-        )
-        model_state_file = os.path.join(final_output_dir,
-                                        'final_state.pth.tar')
-        logger.info('=> loading model_imba from {}'.format(model_state_file))
-        model_imba.load_state_dict(torch.load(model_state_file))
-        gpus = [int(i) for i in config.IMBA.GPUS.split(',')]
-        model_imba = torch.nn.DataParallel(model, device_ids=gpus).cuda()
-    models = [model,model_imba]
     # define loss function (criterion) and optimizer
     criterion = JointsMSELoss(
         use_target_weight=config.LOSS.USE_TARGET_WEIGHT
@@ -168,7 +157,7 @@ def main():
     )
 
     # evaluate on validation set
-    validate(config, valid_loader, valid_dataset, models, criterion,
+    validate(config, valid_loader, valid_dataset, model, criterion,
              final_output_dir, tb_log_dir)
 
 

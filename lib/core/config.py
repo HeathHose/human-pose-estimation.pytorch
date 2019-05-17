@@ -135,8 +135,7 @@ config.IMBA.LR = 0.001
 config.IMBA.LR_FACTOR = 0.1
 config.IMBA.MERGE = True
 config.IMBA.SHUFFLE = False
-config.IMBA.VAL_MODEL_IMBA = True
-config.IMBA.GPUS = '1'
+
 def _update_dict(k, v):
     if k == 'DATASET':
         if 'MEAN' in v and v['MEAN']:

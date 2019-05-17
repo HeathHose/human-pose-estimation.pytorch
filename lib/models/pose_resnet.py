@@ -15,6 +15,8 @@ import torch
 import torch.nn as nn
 from collections import OrderedDict
 
+from core.config import config
+
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
@@ -175,6 +177,14 @@ class PoseResNet(nn.Module):
             padding=1 if extra.FINAL_CONV_KERNEL == 3 else 0
         )
 
+        self.final_layer_imba = nn.Conv2d(
+            in_channels=extra.NUM_DECONV_FILTERS[-1],
+            out_channels=cfg.MODEL.NUM_JOINTS,
+            kernel_size=extra.FINAL_CONV_KERNEL,
+            stride=1,
+            padding=1 if extra.FINAL_CONV_KERNEL == 3 else 0
+        )
+
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
@@ -244,7 +254,12 @@ class PoseResNet(nn.Module):
         x = self.layer4(x)
 
         x = self.deconv_layers(x)
+
+        x_temp = x
         x = self.final_layer(x)
+        if config.IMBA.MERGE:
+            x_imba = self.final_layer_imba(x_temp)
+            x = (x + x_imba) * 0.5
 
         return x
 
@@ -321,14 +336,21 @@ def get_pose_net(cfg, is_train, **kwargs):
         model.init_weights(cfg.MODEL.PRETRAINED)
 
     if cfg.MODEL.FREEZE:
-        freeze_imbalance(model)
+        freeze_recurse(model)
     return model
 
-def freeze_imbalance(model):
-    for name,children in model.named_children():
-        for param in children.parameters():
-            if name in "final_layer":
-                continue
-            param.requires_grad = False
+def freeze_recurse(model):
+    for name,child in model.named_children():
+        #final_layer_imba不冻结
+        if name == "final_layer_imba":
+            continue
+        child.requires_grad = False
+        if isinstance(child, nn.BatchNorm2d):
+            child.eval()
+        freeze_recurse(child)
+
+
+
+
 
 
