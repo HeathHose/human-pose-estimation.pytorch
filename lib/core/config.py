@@ -132,7 +132,7 @@ config.IMBA.MODEL_FILE = 'models/pytorch/pose_coco/pose_resnet_50_256x192.pth.ta
 config.IMBA.LR_STEP = [90, 110]
 config.IMBA.LR = 0.01
 config.IMBA.LR_FACTOR = 0.1
-config.IMBA.FREEZE = False
+config.IMBA.FREEZE = True
 config.IMBA.MERGE = False
 config.IMBA.SHUFFLE = False
 

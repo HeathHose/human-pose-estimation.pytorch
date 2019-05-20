@@ -68,6 +68,7 @@ def get_optimizer(cfg, model):
             nesterov=cfg.TRAIN.NESTEROV
         )
     elif cfg.TRAIN.OPTIMIZER == 'adam':
+        params = filter(lambda param: param.requires_grad, model.parameters())
         optimizer = optim.Adam(
             filter(lambda param: param.requires_grad, model.parameters()),
             lr=cfg.TRAIN.LR
