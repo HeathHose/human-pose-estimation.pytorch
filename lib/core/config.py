@@ -127,7 +127,7 @@ config.DEBUG.SAVE_HEATMAPS_PRED = False
 
 #imba
 config.IMBA = edict()
-config.IMBA.ENABLE = False
+config.IMBA.ENABLE = True
 config.IMBA.MODEL_FILE = 'models/pytorch/pose_coco/pose_resnet_50_256x192.pth.tar'
 config.IMBA.LR_STEP = [90, 110]
 config.IMBA.LR = 0.01

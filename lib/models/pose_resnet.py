@@ -342,9 +342,10 @@ def get_pose_net(cfg, is_train, **kwargs):
 def freeze_recurse(model):
     for name,child in model.named_children():
         #final_layer_imba不冻结
-        if name == "final_layer":
+        if "final_layer" in name:
             continue
-        child.requires_grad = False
+        for param in child.parameters():
+            param.requires_grad = False
         if isinstance(child, nn.BatchNorm2d):
             child.eval()
         freeze_recurse(child)

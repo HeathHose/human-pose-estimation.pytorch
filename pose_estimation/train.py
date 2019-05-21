@@ -183,6 +183,9 @@ def main():
             num_workers=config.WORKERS,
             pin_memory=True
     )
+
+    validate(config, valid_loader, valid_dataset, model, criterion,
+                 final_output_dir, tb_log_dir)
     best_perf = 0.0
     best_model = False
     for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
