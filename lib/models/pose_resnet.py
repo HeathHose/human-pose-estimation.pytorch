@@ -355,21 +355,32 @@ def get_pose_net(cfg, is_train, **kwargs):
         model.init_weights(cfg.MODEL.PRETRAINED)
 
     if cfg.IMBA.FREEZE:
-        freeze_recurse(model)
+        for name, child in model.named_children():
+            print(name)
+            # imba不冻结
+            if name == "conv1" or name == "relu" or name == "maxpool" or name == "bn1" or name == "final_layer":
+                for param in child.parameters():
+                    param.requires_grad = False
+            if name == "bn1":
+                if isinstance(child, nn.BatchNorm2d):
+                    child.eval()
+            if "imba" not in name:
+                freeze_recurse(child)
+    for name, child in model.named_children():
+        print(name)
+        for param in child.parameters():
+            print(param.requires_grad)
     return model
 
 def freeze_recurse(model):
-    for name,child in model.named_children():
-        print(name)
-        #final_layer_imba不冻结
-        if "conv1" == name or "bn1" == name or "relu" == name or "maxpool" == name:
-            continue
-        if "imba" not in name:
-            for param in child.parameters():
-                param.requires_grad = False
-            if isinstance(child, nn.BatchNorm2d):
-                child.eval()
+    for name, child in model.named_children():
+        for param in child.parameters():
+            param.requires_grad = False
+        if isinstance(child, nn.BatchNorm2d):
+            child.eval()
         freeze_recurse(child)
+
+
 
 
 

@@ -46,17 +46,14 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
         target = target.cuda(non_blocking=True)
         target_weight = target_weight.cuda(non_blocking=True)
 
-        loss = criterion(output, target, target_weight)
         loss_imba = criterion(output_imba, target, target_weight)
 
         # compute gradient and do update step
         optimizer.zero_grad()
-        loss.backward(retain_graph=True)
         loss_imba.backward()
         optimizer.step()
 
         # measure accuracy and record loss
-        losses.update(loss.item(), input.size(0))
         losses_imba.update(loss_imba.item(), input.size(0))
         _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
                                          target.detach().cpu().numpy())
@@ -183,11 +180,11 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             all_boxes[idx:idx + num_images, 4] = np.prod(s*200, 1)
             all_boxes[idx:idx + num_images, 5] = score
 
-            preds_imba, preds_imba = get_final_preds(
+            preds_imba, maxvals_imba = get_final_preds(
                 config, output_imba.clone().cpu().numpy(), c, s)
 
             all_preds_imba[idx:idx + num_images, :, 0:2] = preds_imba[:, :, 0:2]
-            all_preds_imba[idx:idx + num_images, :, 2:3] = preds_imba
+            all_preds_imba[idx:idx + num_images, :, 2:3] = maxvals_imba
 
 
             image_path.extend(meta['image'])
@@ -214,11 +211,12 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                 save_debug_images(config, input, meta, target, pred_imba*4, output_imba,
                                   prefix)
 
+
         name_values, perf_indicator = val_dataset.evaluate(
             config, all_preds, output_dir, all_boxes, image_path,
             filenames, imgnums)
-        name_values, perf_indicator_imba = val_dataset.evaluate(
-            config, all_preds_imba, output_dir, all_boxes, image_path,
+        name_values_imba, perf_indicator_imba = val_dataset.evaluate(
+            config, all_preds_imba, output_dir + "imba", all_boxes, image_path,
             filenames, imgnums)
 
         _, full_arch_name = get_model_name(config)
@@ -227,6 +225,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                 _print_name_value(name_value, full_arch_name)
         else:
             _print_name_value(name_values, full_arch_name)
+            _print_name_value(name_values_imba, full_arch_name)
 
         if writer_dict:
             writer = writer_dict['writer']
