@@ -30,7 +30,9 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
+    losses_imba = AverageMeter()
     acc = AverageMeter()
+    acc_imba = AverageMeter()
 
     # switch to train mode
     model.train()
@@ -40,23 +42,28 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
         data_time.update(time.time() - end)
 
         # compute output
-        output = model(input)
+        output,output_imba = model(input)
         target = target.cuda(non_blocking=True)
         target_weight = target_weight.cuda(non_blocking=True)
 
         loss = criterion(output, target, target_weight)
+        loss_imba = criterion(output_imba, target, target_weight)
 
         # compute gradient and do update step
         optimizer.zero_grad()
-        loss.backward()
+        loss.backward(retain_graph=True)
+        loss_imba.backward()
         optimizer.step()
 
         # measure accuracy and record loss
         losses.update(loss.item(), input.size(0))
-
+        losses_imba.update(loss_imba.item(), input.size(0))
         _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
                                          target.detach().cpu().numpy())
+        _, avg_acc_imba, cnt_imba, pred_imba = accuracy(output_imba.detach().cpu().numpy(),
+                                         target.detach().cpu().numpy())
         acc.update(avg_acc, cnt)
+        acc_imba.update(avg_acc_imba, cnt_imba)
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -68,20 +75,28 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
                   'Speed {speed:.1f} samples/s\t' \
                   'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
                   'Loss {loss.val:.5f} ({loss.avg:.5f})\t' \
-                  'Accuracy {acc.val:.3f} ({acc.avg:.3f})'.format(
+                  'Loss_imba {loss_imba.val:.5f} ({loss_imba.avg:.5f})\t' \
+                  'Accuracy {acc.val:.3f} ({acc.avg:.3f})' \
+                  'Accuracy_imba {acc_imba.val:.3f} ({acc_imba.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       speed=input.size(0)/batch_time.val,
-                      data_time=data_time, loss=losses, acc=acc)
+                      data_time=data_time, loss=losses, loss_imba=losses_imba, acc=acc, acc_imba=acc_imba)
             logger.info(msg)
 
             writer = writer_dict['writer']
             global_steps = writer_dict['train_global_steps']
             writer.add_scalar('train_loss', losses.val, global_steps)
             writer.add_scalar('train_acc', acc.val, global_steps)
+
+            writer.add_scalar('train_loss_imba', losses_imba.val, global_steps)
+            writer.add_scalar('train_acc_imba', acc_imba.val, global_steps)
+
             writer_dict['train_global_steps'] = global_steps + 1
 
             prefix = '{}_{}'.format(os.path.join(output_dir, 'train'), i)
             save_debug_images(config, input, meta, target, pred*4, output,
+                              prefix)
+            save_debug_images(config, input, meta, target, pred_imba * 4, output_imba,
                               prefix)
 
 
@@ -90,12 +105,16 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
     batch_time = AverageMeter()
     losses = AverageMeter()
     acc = AverageMeter()
+    losses_imba = AverageMeter()
+    acc_imba = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
 
     num_samples = len(val_dataset)
     all_preds = np.zeros((num_samples, config.MODEL.NUM_JOINTS, 3),
+                         dtype=np.float32)
+    all_preds_imba = np.zeros((num_samples, config.MODEL.NUM_JOINTS, 3),
                          dtype=np.float32)
     all_boxes = np.zeros((num_samples, 6))
     image_path = []
@@ -106,7 +125,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
         end = time.time()
         for i, (input, target, target_weight, meta) in enumerate(val_loader):
             # compute output
-            output = model(input)
+            output,output_imba = model(input)
             if config.TEST.FLIP_TEST:
                 # this part is ugly, because pytorch has not supported negative index
                 # input_flipped = model(input[:, :, :, ::-1])
@@ -129,6 +148,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             target_weight = target_weight.cuda(non_blocking=True)
 
             loss = criterion(output, target, target_weight)
+            loss_imba = criterion(output_imba, target, target_weight)
 
             num_images = input.size(0)
             # measure accuracy and record loss
@@ -137,6 +157,12 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                                              target.cpu().numpy())
 
             acc.update(avg_acc, cnt)
+
+            losses_imba.update(loss_imba.item(), num_images)
+            _, avg_acc_imba, cnt_imba, pred_imba = accuracy(output_imba.cpu().numpy(),
+                                             target.cpu().numpy())
+
+            acc_imba.update(avg_acc_imba, cnt_imba)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -156,6 +182,14 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
             all_boxes[idx:idx + num_images, 2:4] = s[:, 0:2]
             all_boxes[idx:idx + num_images, 4] = np.prod(s*200, 1)
             all_boxes[idx:idx + num_images, 5] = score
+
+            preds_imba, preds_imba = get_final_preds(
+                config, output_imba.clone().cpu().numpy(), c, s)
+
+            all_preds_imba[idx:idx + num_images, :, 0:2] = preds_imba[:, :, 0:2]
+            all_preds_imba[idx:idx + num_images, :, 2:3] = preds_imba
+
+
             image_path.extend(meta['image'])
             if config.DATASET.DATASET == 'posetrack':
                 filenames.extend(meta['filename'])
@@ -167,17 +201,24 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                 msg = 'Test: [{0}/{1}]\t' \
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t' \
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t' \
-                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})'.format(
+                      'Accuracy {acc.val:.3f} ({acc.avg:.3f})' \
+                      'Loss_imba {loss.val:.4f} ({loss_imba.avg:.4f})\t' \
+                      'Accuracy_imba {acc_imba.val:.3f} ({acc_imba.avg:.3f})'.format(
                           i, len(val_loader), batch_time=batch_time,
-                          loss=losses, acc=acc)
+                          loss=losses, acc=acc,loss_imba=losses_imba, acc_imba=acc_imba)
                 logger.info(msg)
 
                 prefix = '{}_{}'.format(os.path.join(output_dir, 'val'), i)
                 save_debug_images(config, input, meta, target, pred*4, output,
                                   prefix)
+                save_debug_images(config, input, meta, target, pred_imba*4, output_imba,
+                                  prefix)
 
         name_values, perf_indicator = val_dataset.evaluate(
             config, all_preds, output_dir, all_boxes, image_path,
+            filenames, imgnums)
+        name_values, perf_indicator_imba = val_dataset.evaluate(
+            config, all_preds_imba, output_dir, all_boxes, image_path,
             filenames, imgnums)
 
         _, full_arch_name = get_model_name(config)
@@ -199,7 +240,7 @@ def validate(config, val_loader, val_dataset, model, criterion, output_dir,
                 writer.add_scalars('valid', dict(name_values), global_steps)
             writer_dict['valid_global_steps'] = global_steps + 1
 
-    return perf_indicator
+    return perf_indicator,perf_indicator_imba
 
 
 # markdown format output

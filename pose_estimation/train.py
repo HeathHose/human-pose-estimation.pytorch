@@ -96,10 +96,19 @@ def main():
     if config.IMBA.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.IMBA.MODEL_FILE))
         state_dict = torch.load(config.IMBA.MODEL_FILE)
-        state_dict["final_layer_imba.weight"] = state_dict["final_layer.weight"]
-        state_dict["final_layer_imba.bias"] = state_dict["final_layer.bias"]
+        state_dict_imba = {}
+        for key, value in state_dict.items():
+            if key =="conv1.weight" or key =="conv1.bias" \
+                or key =="bn1.weight" or key =="bn1.bias" or key == "bn1.running_mean" or key == "bn1.running_var" \
+                or key =="relu.weight" or key =="relu.bias" \
+                or key == "maxpool.weight" or key == "maxpool.bias":
+                continue
+            key = key.split(".",1)
+            state_dict_imba[key[0] + "_imba." + key[1]] = value
+        state_dict.update(state_dict_imba)
         model.load_state_dict(state_dict)
         del(state_dict)
+        del(state_dict_imba)
     else:
         raise Exception("finetune have no pretained model file")
 
@@ -184,8 +193,6 @@ def main():
             pin_memory=True
     )
 
-    validate(config, valid_loader, valid_dataset, model, criterion,
-                 final_output_dir, tb_log_dir)
     best_perf = 0.0
     best_model = False
     for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
@@ -197,7 +204,7 @@ def main():
 
 
         # evaluate on validation set
-        perf_indicator = validate(config, valid_loader, valid_dataset, model,
+        perf_indicator,perf_indicator_imba = validate(config, valid_loader, valid_dataset, model,
                                   criterion, final_output_dir, tb_log_dir,
                                   writer_dict)
 

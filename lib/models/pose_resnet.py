@@ -162,8 +162,21 @@ class PoseResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
 
+        self.inplanes = 64
+        self.layer1_imba = self._make_layer(block, 64, layers[0])
+        self.layer2_imba = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3_imba = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4_imba = self._make_layer(block, 512, layers[3], stride=2)
+
         # used for deconv layers
         self.deconv_layers = self._make_deconv_layer(
+            extra.NUM_DECONV_LAYERS,
+            extra.NUM_DECONV_FILTERS,
+            extra.NUM_DECONV_KERNELS,
+        )
+
+        self.inplanes = 2048
+        self.deconv_layers_imba = self._make_deconv_layer(
             extra.NUM_DECONV_LAYERS,
             extra.NUM_DECONV_FILTERS,
             extra.NUM_DECONV_KERNELS,
@@ -248,20 +261,26 @@ class PoseResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
+        x_imba = x
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
         x = self.deconv_layers(x)
-
-        x_temp = x
         x = self.final_layer(x)
+
+        x_imba = self.layer1_imba(x_imba)
+        x_imba = self.layer2_imba(x_imba)
+        x_imba = self.layer3_imba(x_imba)
+        x_imba = self.layer4_imba(x_imba)
+
+        x_imba = self.deconv_layers_imba(x_imba)
+        x_imba = self.final_layer_imba(x_imba)
+
         if config.IMBA.MERGE:
-            x_imba = self.final_layer_imba(x_temp)
-            x = (x + x_imba) * 0.5
-        del(x_temp)
-        return x
+            pass
+
+        return x,x_imba
 
     def init_weights(self, pretrained=''):
         if os.path.isfile(pretrained):
@@ -341,13 +360,15 @@ def get_pose_net(cfg, is_train, **kwargs):
 
 def freeze_recurse(model):
     for name,child in model.named_children():
+        print(name)
         #final_layer_imba不冻结
-        if "final_layer" in name:
+        if "conv1" == name or "bn1" == name or "relu" == name or "maxpool" == name:
             continue
-        for param in child.parameters():
-            param.requires_grad = False
-        if isinstance(child, nn.BatchNorm2d):
-            child.eval()
+        if "imba" not in name:
+            for param in child.parameters():
+                param.requires_grad = False
+            if isinstance(child, nn.BatchNorm2d):
+                child.eval()
         freeze_recurse(child)
 
 
