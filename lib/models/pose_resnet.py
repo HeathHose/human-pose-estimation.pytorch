@@ -332,6 +332,15 @@ class PoseResNet(nn.Module):
             logger.error('=> please download it first')
             raise ValueError('imagenet pretrained model does not exist')
 
+    def freeze_bn(self):
+        for layer in self.modules():
+            if isinstance(layer, nn.BatchNorm2d):
+                layer.eval()
+        for name, child in self.named_children():
+            if "imba" in name:
+                for layer in child.modules():
+                    if isinstance(layer, nn.BatchNorm2d):
+                        layer.train()
 
 resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
                34: (BasicBlock, [3, 4, 6, 3]),
@@ -354,6 +363,19 @@ def get_pose_net(cfg, is_train, **kwargs):
     if is_train and cfg.MODEL.INIT_WEIGHTS:
         model.init_weights(cfg.MODEL.PRETRAINED)
 
+    # for name, child in model.named_children():
+    #     print(name)
+    #     if name == "bn1":
+    #         print(name, child.training, child.track_running_stats)
+    #     for name2, child2 in child.named_children():
+    #         if isinstance(child2, nn.BatchNorm2d):
+    #             print(name2+"的状态")
+    #             print(name2, child2.training,child2.track_running_stats)
+    #         for name3, child3 in child2.named_children():
+    #             if isinstance(child3, nn.BatchNorm2d):
+    #                 print(name3 + "的状态")
+    #                 print(name3, child3.training, child3.track_running_stats)
+
     if cfg.IMBA.FREEZE:
         for name, child in model.named_children():
             print(name)
@@ -366,11 +388,9 @@ def get_pose_net(cfg, is_train, **kwargs):
                     child.eval()
             if "imba" not in name:
                 freeze_recurse(child)
-    for name, child in model.named_children():
-        print(name)
-        for param in child.parameters():
-            print(param.requires_grad)
+
     return model
+
 
 def freeze_recurse(model):
     for name, child in model.named_children():
@@ -379,6 +399,7 @@ def freeze_recurse(model):
         if isinstance(child, nn.BatchNorm2d):
             child.eval()
         freeze_recurse(child)
+
 
 
 

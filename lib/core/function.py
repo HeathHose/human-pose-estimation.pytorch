@@ -36,6 +36,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
 
     # switch to train mode
     model.train()
+    model.module.freeze_bn()
     end = time.time()
     for i, (input, target, target_weight, meta) in enumerate(train_loader):
         # measure data loading time
@@ -71,18 +72,16 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
                   'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)\t' \
                   'Speed {speed:.1f} samples/s\t' \
                   'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
-                  'Loss {loss.val:.5f} ({loss.avg:.5f})\t' \
                   'Loss_imba {loss_imba.val:.5f} ({loss_imba.avg:.5f})\t' \
                   'Accuracy {acc.val:.3f} ({acc.avg:.3f})' \
                   'Accuracy_imba {acc_imba.val:.3f} ({acc_imba.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
                       speed=input.size(0)/batch_time.val,
-                      data_time=data_time, loss=losses, loss_imba=losses_imba, acc=acc, acc_imba=acc_imba)
+                      data_time=data_time, loss_imba=losses_imba, acc=acc, acc_imba=acc_imba)
             logger.info(msg)
 
             writer = writer_dict['writer']
             global_steps = writer_dict['train_global_steps']
-            writer.add_scalar('train_loss', losses.val, global_steps)
             writer.add_scalar('train_acc', acc.val, global_steps)
 
             writer.add_scalar('train_loss_imba', losses_imba.val, global_steps)
