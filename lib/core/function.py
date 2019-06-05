@@ -49,7 +49,7 @@ def train(config, train_loader, model, criterion, optimizer, epoch,
 
         # compute gradient and do update step
         optimizer.zero_grad()
-        loss.backward()
+        #loss.backward()
         optimizer.step()
 
         # measure accuracy and record loss

@@ -173,6 +173,13 @@ class PoseResNet(nn.Module):
             stride=1,
             padding=1 if extra.FINAL_CONV_KERNEL == 3 else 0
         )
+        self.final_layer_imba = nn.Conv2d(
+            in_channels=extra.NUM_DECONV_FILTERS[-1],
+            out_channels=cfg.MODEL.NUM_JOINTS,
+            kernel_size=extra.FINAL_CONV_KERNEL,
+            stride=1,
+            padding=1 if extra.FINAL_CONV_KERNEL == 3 else 0
+        )
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -319,4 +326,30 @@ def get_pose_net(cfg, is_train, **kwargs):
     if is_train and cfg.MODEL.INIT_WEIGHTS:
         model.init_weights(cfg.MODEL.PRETRAINED)
 
+    if True:
+        for name, child in model.named_children():
+            print(name)
+            # imba不冻结
+            if name == "conv1" or name == "relu" or name == "maxpool" or name == "bn1" or name == "final_layer":
+                for param in child.parameters():
+                    param.requires_grad = False
+            if name == "bn1":
+                if isinstance(child, nn.BatchNorm2d):
+                    child.eval()
+            if "imba" not in name:
+                freeze_recurse(child)
+    for name, child in model.named_children():
+        print(name)
+        for param in child.parameters():
+            print(param.requires_grad)
     return model
+
+
+def freeze_recurse(model):
+    for name, child in model.named_children():
+        for param in child.parameters():
+            param.requires_grad = False
+        if isinstance(child, nn.BatchNorm2d):
+            child.eval()
+        freeze_recurse(child)
+

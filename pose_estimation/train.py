@@ -93,6 +93,22 @@ def main():
         config, is_train=True
     )
 
+    logger.info('=> loading model from {}'.format("models/pytorch/pose_coco/pose_resnet_50_256x192.pth.tar"))
+    state_dict = torch.load("models/pytorch/pose_coco/pose_resnet_50_256x192.pth.tar")
+    state_dict_imba = {}
+    for key, value in state_dict.items():
+        if key == "conv1.weight" or key == "conv1.bias" \
+                or key == "bn1.weight" or key == "bn1.bias" or key == "bn1.running_mean" or key == "bn1.running_var" \
+                or key == "relu.weight" or key == "relu.bias" \
+                or key == "maxpool.weight" or key == "maxpool.bias":
+            continue
+        key = key.split(".", 1)
+        state_dict_imba[key[0] + "_imba." + key[1]] = value
+    state_dict.update(state_dict_imba)
+    model.load_state_dict(state_dict)
+    del (state_dict)
+    del (state_dict_imba)
+    
     # copy model file
     this_dir = os.path.dirname(__file__)
     shutil.copy2(
@@ -166,6 +182,9 @@ def main():
 
     best_perf = 0.0
     best_model = False
+    validate(config, valid_loader, valid_dataset, model, criterion,
+             final_output_dir, tb_log_dir)
+
     for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
         lr_scheduler.step()
 
