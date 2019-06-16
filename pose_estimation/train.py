@@ -194,27 +194,13 @@ def main():
 
     best_perf = 0.0
     best_model = False
-    model2 = copy.deepcopy(model)
-    for parameter, parameter2 in zip(model.module.named_parameters(), model2.module.named_parameters()):
-        if torch.equal(parameter[1],parameter2[1]):
-            print(parameter[0],parameter2[0])
-    validate(config, valid_loader, valid_dataset, model, criterion,
-             final_output_dir, tb_log_dir)
+
     for epoch in range(config.TRAIN.BEGIN_EPOCH, config.TRAIN.END_EPOCH):
         lr_scheduler.step()
 
         # train for one epoch
         train(config, train_loader, model, criterion, optimizer, epoch,
               final_output_dir, tb_log_dir, writer_dict)
-        print("不肯定的输出")
-        for parameter, parameter2 in zip(model.module.named_parameters(), model2.module.named_parameters()):
-            if not torch.equal(parameter[1].data, parameter2[1]):
-                print(parameter[0], parameter2[0])
-        print("肯定的输出")
-        for parameter, parameter2 in zip(model.module.named_parameters(), model2.module.named_parameters()):
-            if torch.equal(parameter[1], parameter2[1]):
-                print(parameter[0], parameter2[0])
-
 
         # evaluate on validation set
         perf_indicator,perf_indicator_imba = validate(config, valid_loader, valid_dataset, model,

@@ -363,22 +363,8 @@ def get_pose_net(cfg, is_train, **kwargs):
     if is_train and cfg.MODEL.INIT_WEIGHTS:
         model.init_weights(cfg.MODEL.PRETRAINED)
 
-    # for name, child in model.named_children():
-    #     print(name)
-    #     if name == "bn1":
-    #         print(name, child.training, child.track_running_stats)
-    #     for name2, child2 in child.named_children():
-    #         if isinstance(child2, nn.BatchNorm2d):
-    #             print(name2+"的状态")
-    #             print(name2, child2.training,child2.track_running_stats)
-    #         for name3, child3 in child2.named_children():
-    #             if isinstance(child3, nn.BatchNorm2d):
-    #                 print(name3 + "的状态")
-    #                 print(name3, child3.training, child3.track_running_stats)
-
     if cfg.IMBA.FREEZE:
         for name, child in model.named_children():
-            print(name)
             # imba不冻结
             if name == "conv1" or name == "relu" or name == "maxpool" or name == "bn1" or name == "final_layer":
                 for param in child.parameters():
